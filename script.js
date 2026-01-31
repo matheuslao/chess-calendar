@@ -33,50 +33,15 @@ function loadEvents() {
             if (results.data && results.data.length > 0) {
                 renderEvents(results.data);
             } else {
-                console.warn('No data found or empty. Using Mock Data for demo.');
-                useMockData();
+                console.warn('No data found in CSV.');
+                showError();
             }
         },
         error: function (err) {
             console.error('PapaParse Error:', err);
-            useMockData();
+            showError();
         }
     }); // fixed syntax
-}
-
-function useMockData() {
-    // Schema matches the real CSV headers we observed
-    // Headers: Timestamp, Email Address, Nome do Evento, Data, Hora de início, Hora de término, Local, Custo, Link do Evento, Realização, Breve Descrição, Tipo do Evento, Rating?
-    const mockEvents = [
-        {
-            "Nome do Evento": "Encontro Cavaleiros do Centro",
-            "Data": "2/1/2026",
-            "Hora de início": "10:30:00 AM",
-            "Local": "Cine Glauber Rocha",
-            "Custo": "Gratuito",
-            "Link do Evento": "",
-            "Realização": "Ô Rei, Clube de Xadrez",
-            "Breve Descrição": "Encontro semanal da comunidade.",
-            "Tipo do Evento": "Encontro",
-            "Rating?": ""
-        },
-        {
-            "Nome do Evento": "Torneio de Abertura",
-            "Data": "2/15/2026",
-            "Hora de início": "2:00:00 PM",
-            "Local": "Biblioteca Central",
-            "Custo": "Pago",
-            "Link do Evento": "https://example.com/inscricao",
-            "Realização": "Federação Bahiana de Xadrez",
-            "Breve Descrição": "Torneio valendo rating FIDE.",
-            "Tipo do Evento": "Torneio",
-            "Rating?": "Valendo Rating"
-        }
-    ];
-
-    setTimeout(() => {
-        renderEvents(mockEvents);
-    }, 800);
 }
 
 function renderEvents(data) {
