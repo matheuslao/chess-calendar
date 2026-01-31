@@ -55,6 +55,13 @@ function renderEvents(data) {
         return;
     }
 
+    // Sort events: Descending order (Newest/Future first -> Oldest/Past last)
+    validEvents.sort((a, b) => {
+        const dateA = parseDateForSort(a['Data'] || a['Timestamp']);
+        const dateB = parseDateForSort(b['Data'] || b['Timestamp']);
+        return dateB - dateA;
+    });
+
     validEvents.forEach(event => {
         // Map fields based on Real CSV Headers
         // Headers: Timestamp,Email Address,Nome do Evento,Data,Hora de início,Hora de término,Local,Custo,Link do Evento,Realização,Breve Descrição,Tipo do Evento,Rating?
@@ -155,6 +162,45 @@ function formatDateToBR(dateString) {
     return dateString;
 }
 
+// Helper to parse date for sorting (returns timestamp)
+function parseDateForSort(dateString) {
+    if (!dateString) return 0;
+
+    // Check for M/D/YYYY (Standard Sheets CSV)
+    if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+            // Assume Month/Day/Year (US Format from Sheets)
+            const month = parseInt(parts[0], 10);
+            const day = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
+
+            // Check if valid numbers
+            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                // Month is 0-indexed in JS Date
+                return new Date(year, month - 1, day).getTime();
+            }
+        }
+    }
+
+    // Check for YYYY-MM-DD
+    if (dateString.includes('-')) {
+        const parts = dateString.split('-');
+        if (parts.length === 3 && parts[0].length === 4) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            const day = parseInt(parts[2], 10);
+            return new Date(year, month - 1, day).getTime();
+        }
+    }
+
+    // Fallback to standard parse
+    let timestamp = Date.parse(dateString);
+    if (!isNaN(timestamp)) return timestamp;
+
+    return 0;
+}
+
 function createEventCard(data) {
     const article = document.createElement('article');
     article.className = 'event-card';
@@ -172,7 +218,7 @@ function createEventCard(data) {
     // Rating Logic (Show only if present)
     let ratingHtml = '';
     if (data.rating) {
-        ratingHtml = `<div class="rating-info">⚡ ${escapeHtml(data.rating)}</div>`;
+        ratingHtml = `<div class="rating-info">⚡ Rating!</div>`;
     }
 
     // Organizer Logic
