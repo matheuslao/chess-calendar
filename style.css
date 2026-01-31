@@ -289,10 +289,10 @@ body {
     color: var(--text-secondary);
     line-height: 1.6;
     margin-top: 0.75rem;
-    display: -webkit-box;
+    /*display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
-    overflow: hidden;
+    overflow: hidden;*/
 }
 
 .event-organizer {
