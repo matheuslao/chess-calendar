@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cavaleiros do Centro - Comunidade de Xadrez</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="container">
+            <h1>♟️ Cavaleiros do Centro</h1>
+            <p>Comunidade de Xadrez do Centro de Salvador/Bahia</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <div id="loading" class="loading-state">
+            <div class="spinner"></div>
+            <p>Carregando eventos...</p>
+        </div>
+
+        <div id="error-message" class="error-state hidden">
+            <p>😕 Ops! Não foi possível carregar os eventos.</p>
+            <button id="retry-btn">Tentar novamente</button>
+        </div>
+        <h2 class="text-center">Calendário de Eventos</h2>
+        <p class="text-center">Confira os próximos eventos de xadrez na região de Salvador/Bahia</p>
+        <br /><br />
+
+        <div id="events-container" class="events-grid hidden">
+            <!-- Events will be inserted here -->
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <p>Feito pela comunidade para a comunidade.</p>
+    </footer>
+
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+</body>
+
+</html>

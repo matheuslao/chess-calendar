@@ -1,0 +1,372 @@
+:root {
+    /* Royal / Classic Theme */
+    --bg-color: #f9fafb;
+    --card-bg: #ffffff;
+
+    /* Primary Dark - Almost Black */
+    --primary-dark: #111827;
+    --primary-light: #374151;
+
+    /* Gold Accents */
+    --accent-gold: #d97706;
+    /* Amber-600 */
+    --accent-gold-light: #fcd34d;
+    /* Amber-300 */
+    --accent-gold-bg: #fffbeb;
+    /* Amber-50 */
+
+    /* Text */
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+
+    /* UI Elements */
+    --border-color: #e5e7eb;
+    --border-gold: #f59e0b;
+    /* Amber-500 */
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --radius: 0.5rem;
+    /* Slightly sharper radius for classic feel */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+}
+
+h1,
+h2,
+h3 {
+    font-family: 'Playfair Display', serif;
+    /* Classic Serif Font */
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+.container {
+    width: 100%;
+    max-width: 700px;
+    /* Slightly wider for reading */
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* Header */
+.app-header {
+    background: var(--primary-dark);
+    color: #f3f4f6;
+    padding: 3rem 0;
+    text-align: center;
+    border-bottom: 4px solid var(--accent-gold);
+    margin-bottom: 2rem;
+}
+
+.logo-area {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    color: var(--accent-gold);
+}
+
+.app-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    letter-spacing: 0.5px;
+    color: #ffffff;
+}
+
+.app-header p {
+    color: #d1d5db;
+    /* Gray-300 */
+    font-size: 1rem;
+    font-weight: 400;
+    font-family: 'Inter', sans-serif;
+}
+
+/* About Section */
+.about-section {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-dark);
+    /* Accent on left */
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.about-section h2 {
+    font-size: 1.5rem;
+    color: var(--primary-dark);
+    margin-bottom: 1rem;
+}
+
+.about-section p {
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.about-link {
+    display: inline-block;
+    color: var(--accent-gold);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.about-link:hover {
+    color: var(--primary-dark);
+    border-bottom-color: var(--primary-dark);
+}
+
+.divider {
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 2rem 0;
+}
+
+/* Loading State */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+    color: var(--text-secondary);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e5e7eb;
+    border-top-color: var(--accent-gold);
+    /* Gold spinner */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error State */
+.error-state {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--text-secondary);
+}
+
+.error-state button {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--primary-dark);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+/* Event List */
+.events-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding-bottom: 3rem;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+.event-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    /* Classic touch: Gold top border on hover or normally */
+    border-top: 3px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.event-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-top-color: var(--accent-gold);
+}
+
+/* Badges and Meta */
+.event-meta-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.event-date {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 0.95rem;
+    border-bottom: 2px solid var(--accent-gold-bg);
+}
+
+.badges-container {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    /* Boxier for classic look */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.badge-tournament {
+    background-color: var(--primary-dark);
+    color: #fff;
+}
+
+.badge-meetup {
+    background-color: #065f46;
+    /* Deep Green */
+    color: #fff;
+}
+
+.badge-free {
+    background-color: var(--accent-gold-bg);
+    color: #b45309;
+    /* Darker Gold text */
+    border: 1px solid #fde68a;
+}
+
+.badge-default {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Rating Info */
+.rating-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: #b45309;
+    /* Gold/Bronze tone */
+    font-weight: 600;
+    background: var(--accent-gold-bg);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+}
+
+/* Description */
+.event-description {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-top: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.event-organizer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--primary-light);
+    margin-top: 1rem;
+    font-weight: 600;
+    padding-top: 0.75rem;
+    border-top: 1px dashed var(--border-color);
+}
+
+.event-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    line-height: 1.25;
+}
+
+.event-location {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.event-link {
+    display: block;
+    margin-top: 1.25rem;
+    text-align: center;
+    background-color: var(--primary-dark);
+    color: #fff;
+    /* Gold text on dark button */
+    text-decoration: none;
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background-color 0.2s, color 0.2s;
+    border: 1px solid var(--primary-dark);
+}
+
+.event-link:hover {
+    background-color: #fff;
+    color: var(--primary-dark);
+}
+
+/* Utilities */
+.hidden {
+    display: none !important;
+}
+
+/* Footer */
+.app-footer {
+    text-align: center;
+    padding: 3rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 2rem;
+    background-color: #fff;
+}
+
+.app-footer p {
+    margin-bottom: 0.5rem;
+}
+
+.copyright {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-top: 1rem;
+}
