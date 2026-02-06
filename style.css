@@ -413,7 +413,7 @@ body {
 
 .calendar-days-header {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     background: #f3f4f6;
     padding: 0.75rem 0;
     text-align: center;
@@ -424,7 +424,7 @@ body {
 
 .calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     /* auto-rows handled by content, but min-height good */
 }
 
