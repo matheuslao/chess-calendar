@@ -53,8 +53,8 @@ body {
 
 .container {
     width: 100%;
-    max-width: 700px;
-    /* Slightly wider for reading */
+    max-width: 1200px;
+    /* Wider for calendar view */
     margin: 0 auto;
     padding: 0 1.5rem;
 }
@@ -369,7 +369,9 @@ body {
     font-size: 0.8rem;
     color: #9ca3af;
     margin-top: 1rem;
-}/* Calendar Styles */
+}
+
+/* Calendar Styles */
 .calendar-wrapper {
     background: #fff;
     border-radius: var(--radius);
@@ -427,7 +429,8 @@ body {
 }
 
 .day-cell {
-    min-height: 100px; /* ample space for mobile tap */
+    min-height: 120px;
+    /* ample space for mobile tap */
     border-right: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
     padding: 0.5rem;
@@ -446,7 +449,8 @@ body {
 }
 
 .day-cell.empty {
-    background-color: #f9fafb; /* distinct from active month */
+    background-color: #f9fafb;
+    /* distinct from active month */
 }
 
 .day-cell.today {
@@ -535,20 +539,25 @@ body {
     .day-cell {
         min-height: 80px;
     }
+
     .event-dot {
-        font-size: 0px; /* Hide text on very small screens? */
-        height: 8px;     /* Just show a dot */
+        font-size: 0px;
+        /* Hide text on very small screens? */
+        height: 8px;
+        /* Just show a dot */
         width: 8px;
         padding: 0;
         border-radius: 50%;
         margin-bottom: 1px;
     }
+
     .event-dots {
         flex-direction: row;
         flex-wrap: wrap;
         justify-content: center;
     }
 }
+
 /* Event Modal */
 .modal-overlay {
     position: fixed;
@@ -605,4 +614,41 @@ body {
 .modal-content .event-meta-top {
     margin-top: 0.5rem;
     margin-bottom: 1.5rem;
+}
+
+/* Legend Styles */
+.calendar-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 0.75rem 0;
+    background-color: #fff;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-dot.tournament {
+    background-color: var(--primary-dark);
+}
+
+.legend-dot.meetup {
+    background-color: #065f46;
+}
+
+.legend-dot.other {
+    background-color: var(--accent-gold);
 }
