@@ -536,26 +536,42 @@ body {
 
 /* Mobile Responsiveness */
 @media (max-width: 600px) {
-    .day-cell {
-        min-height: 80px;
+    .container {
+        padding: 0 0.5rem;
+        /* More space for grid */
     }
 
-    .event-dot {
-        font-size: 0px;
-        /* Hide text on very small screens? */
-        height: 8px;
-        /* Just show a dot */
-        width: 8px;
-        padding: 0;
-        border-radius: 50%;
-        margin-bottom: 1px;
+    .day-cell {
+        min-height: 90px;
+        padding: 2px;
+    }
+
+    .day-number {
+        font-size: 0.8rem;
+        margin-left: 2px;
     }
 
     .event-dots {
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
+
+    .event-dot {
+        font-size: 0.6rem;
+        height: auto;
+        width: 100%;
+        padding: 2px 4px;
+        border-radius: 3px;
+        margin-bottom: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        line-height: 1.2;
+    }
+
+    /* Ensure colors are maintained from desktop styles */
 }
 
 /* Event Modal */
@@ -652,7 +668,9 @@ body {
 
 .legend-dot.other {
     background-color: var(--accent-gold);
-}/* Submission Link */
+}
+
+/* Submission Link */
 .submit-event-link {
     display: inline-block;
     margin-top: 0.5rem;
@@ -667,7 +685,9 @@ body {
     opacity: 1;
     color: var(--primary-dark);
     text-decoration: underline;
-}/* Footer Links */
+}
+
+/* Footer Links */
 .footer-links {
     display: flex;
     justify-content: center;
