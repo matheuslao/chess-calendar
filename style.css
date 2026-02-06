@@ -652,4 +652,19 @@ body {
 
 .legend-dot.other {
     background-color: var(--accent-gold);
+}/* Submission Link */
+.submit-event-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.submit-event-link:hover {
+    opacity: 1;
+    color: var(--primary-dark);
+    text-decoration: underline;
 }
