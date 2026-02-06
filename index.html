@@ -40,7 +40,7 @@
                 <h2 id="month-year-label">Mês Ano</h2>
                 <button id="next-month" class="nav-btn">&gt;</button>
             </div>
-            
+
             <div class="calendar-days-header">
                 <div>Dom</div>
                 <div>Seg</div>
@@ -56,12 +56,14 @@
             </div>
         </div>
 
-        <div id="selected-date-events" class="selected-events-container hidden">
-            <h3 id="selected-date-title">Eventos do Dia</h3>
-            <div id="day-events-list">
-                <!-- Events for the selected day will appear here -->
+        <!-- Event Modal -->
+        <div id="event-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button id="close-modal" class="modal-close-btn">&times;</button>
+                <div id="modal-body">
+                    <!-- Event Details will be injected here -->
+                </div>
             </div>
-            <button id="close-details" class="close-btn">Fechar Detalhes</button>
         </div>
     </main>
 

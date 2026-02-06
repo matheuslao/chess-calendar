@@ -13,7 +13,7 @@ let currentYear = new Date().getFullYear();
 // DOM Elements vars (init on load)
 let loadingState, errorState, calendarWrapper, calendarGrid, monthYearLabel;
 let prevMonthBtn, nextMonthBtn, retryBtn;
-let selectedEventsContainer, selectedDateTitle, dayEventsList, closeDetailsBtn;
+let modalOverlay, modalBody, modalCloseBtn;
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,10 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
     prevMonthBtn = document.getElementById('prev-month');
     nextMonthBtn = document.getElementById('next-month');
     retryBtn = document.getElementById('retry-btn');
-    selectedEventsContainer = document.getElementById('selected-date-events');
-    selectedDateTitle = document.getElementById('selected-date-title');
-    dayEventsList = document.getElementById('day-events-list');
-    closeDetailsBtn = document.getElementById('close-details');
+
+    // Modal Elements
+    modalOverlay = document.getElementById('event-modal');
+    modalBody = document.getElementById('modal-body');
+    modalCloseBtn = document.getElementById('close-modal');
 
     init();
 });
@@ -39,7 +40,19 @@ function init() {
     if (retryBtn) retryBtn.addEventListener('click', loadEvents);
     if (prevMonthBtn) prevMonthBtn.addEventListener('click', () => changeMonth(-1));
     if (nextMonthBtn) nextMonthBtn.addEventListener('click', () => changeMonth(1));
-    if (closeDetailsBtn) closeDetailsBtn.addEventListener('click', hideEventDetails);
+
+    // Modal Listeners
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) closeModal();
+        });
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modalOverlay.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
 }
 
 function changeMonth(delta) {
@@ -139,12 +152,16 @@ function renderCalendar() {
                 const dot = document.createElement('span');
                 dot.className = `event-dot ${getEventTypeClass(event.raw['Tipo do Evento'])}`;
                 dot.textContent = event.raw['Nome do Evento'];
+
+                // Add click listener to the specific event dot
+                dot.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent bubbling if we added click to cell later
+                    openModal(event.raw, event.date);
+                });
+
                 dotsContainer.appendChild(dot);
             });
             cell.appendChild(dotsContainer);
-
-            // Interaction
-            cell.addEventListener('click', () => showEventDetails(i, dayEvents));
         }
 
         calendarGrid.appendChild(cell);
@@ -174,22 +191,18 @@ function getEventTypeClass(type) {
     return 'other';
 }
 
-function showEventDetails(day, events) {
-    selectedDateTitle.textContent = `Eventos de ${day}/${currentMonth + 1}/${currentYear}`;
-    dayEventsList.innerHTML = '';
-
-    events.forEach(eventData => {
-        const card = createEventCard(eventData.raw);
-        dayEventsList.appendChild(card);
-    });
-
-    selectedEventsContainer.classList.remove('hidden');
-    // Scroll to details
-    selectedEventsContainer.scrollIntoView({ behavior: 'smooth' });
+function openModal(eventData, dateObj) {
+    modalBody.innerHTML = '';
+    const card = createEventDetails(eventData, dateObj);
+    modalBody.appendChild(card);
+    modalOverlay.classList.remove('hidden');
+    // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
 }
 
-function hideEventDetails() {
-    selectedEventsContainer.classList.add('hidden');
+function closeModal() {
+    modalOverlay.classList.add('hidden');
+    document.body.style.overflow = '';
 }
 
 function formatMonthYear(monthIndex, year) {
@@ -200,10 +213,9 @@ function formatMonthYear(monthIndex, year) {
     return `${months[monthIndex]} ${year}`;
 }
 
-// Re-using the same card creation logic, slightly adapted if needed
-function createEventCard(event) {
-    const article = document.createElement('article');
-    article.className = 'event-card';
+// Prepare content for modal
+function createEventDetails(event, dateObj) {
+    const div = document.createElement('div');
 
     const name = event['Nome do Evento'] || 'Evento Sem Nome';
     const location = event['Local'] || 'Local não informado';
@@ -213,6 +225,10 @@ function createEventCard(event) {
     const organizer = event['Realização'] || '';
     const description = event['Breve Descrição'] || '';
     const timeStr = event['Hora de início'] || '';
+
+    // Format Date nicely
+    const dateFormatted = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const fullTime = timeStr ? `${dateFormatted} às ${timeStr}` : dateFormatted;
 
     // Badge
     let typeBadgeClass = getEventTypeClass(type) === 'tournament' ? 'badge-tournament' :
@@ -229,23 +245,25 @@ function createEventCard(event) {
     let linkHtml = link ? `
         <a href="${escapeHtml(link)}" target="_blank" class="event-link">Mais Informações</a>` : '';
 
-    article.innerHTML = `
+    div.innerHTML = `
         <div class="event-meta-top">
-            <span class="event-date">${timeStr}</span>
+            <span class="event-date">${fullTime}</span>
             <div class="badges-container">
                 <span class="badge ${typeBadgeClass}">${escapeHtml(type)}</span>
                 ${costBadgeHtml}
             </div>
         </div>
         <h2 class="event-title">${escapeHtml(name)}</h2>
-        <div class="event-description">${escapeHtml(description)}</div>
+        <div class="event-description">
+            <p>${escapeHtml(description)}</p>
+        </div>
         ${organizerHtml}
         <div class="event-location" style="margin-top: 1rem;">
             <span>📍</span><span>${escapeHtml(location)}</span>
         </div>
         ${linkHtml}
     `;
-    return article;
+    return div;
 }
 
 // -- Helpers (same as before) --
