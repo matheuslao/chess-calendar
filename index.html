@@ -26,24 +26,66 @@
     <main class="container">
         <div id="loading" class="loading-state">
             <div class="spinner"></div>
-            <p>Carregando eventos...</p>
+            <p>Carregando calendário...</p>
         </div>
 
         <div id="error-message" class="error-state hidden">
             <p>😕 Ops! Não foi possível carregar os eventos.</p>
             <button id="retry-btn">Tentar novamente</button>
         </div>
-        <h2 class="text-center">Calendário de Eventos</h2>
-        <p class="text-center">Confira os próximos eventos de xadrez:
-            <br /><br />
 
-        <div id="events-container" class="events-grid hidden">
-            <!-- Events will be inserted here -->
+        <div id="calendar-wrapper" class="hidden">
+            <div class="calendar-header">
+                <button id="prev-month" class="nav-btn">&lt;</button>
+                <h2 id="month-year-label">Mês Ano</h2>
+                <button id="next-month" class="nav-btn">&gt;</button>
+            </div>
+
+            <div class="calendar-legend">
+                <div class="legend-item">
+                    <span class="legend-dot tournament"></span> Torneio
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot meetup"></span> Encontro/Clube
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot other"></span> Outro
+                </div>
+            </div>
+
+            <div class="calendar-days-header">
+                <div>Dom</div>
+                <div>Seg</div>
+                <div>Ter</div>
+                <div>Qua</div>
+                <div>Qui</div>
+                <div>Sex</div>
+                <div>Sab</div>
+            </div>
+
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- Days will be inserted here by JS -->
+            </div>
+        </div>
+
+        <!-- Event Modal -->
+        <div id="event-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button id="close-modal" class="modal-close-btn">&times;</button>
+                <div id="modal-body">
+                    <!-- Event Details will be injected here -->
+                </div>
+            </div>
         </div>
     </main>
 
     <footer class="app-footer">
         <p>Feito pela comunidade para a comunidade.</p>
+        <div class="footer-links">
+            <a href="https://linktr.ee/cavaleirosdocentro" target="_blank" class="footer-link">🌳 Linktree</a>
+            <span class="separator">•</span>
+            <a href="https://forms.gle/5JcVGHQXQXhK9XXy7" target="_blank" class="footer-link">Divulgar evento</a>
+        </div>
     </footer>
 
     <!-- Custom JS -->
