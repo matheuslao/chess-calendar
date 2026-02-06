@@ -26,19 +26,42 @@
     <main class="container">
         <div id="loading" class="loading-state">
             <div class="spinner"></div>
-            <p>Carregando eventos...</p>
+            <p>Carregando calendário...</p>
         </div>
 
         <div id="error-message" class="error-state hidden">
             <p>😕 Ops! Não foi possível carregar os eventos.</p>
             <button id="retry-btn">Tentar novamente</button>
         </div>
-        <h2 class="text-center">Calendário de Eventos</h2>
-        <p class="text-center">Confira os próximos eventos de xadrez:
-            <br /><br />
 
-        <div id="events-container" class="events-grid hidden">
-            <!-- Events will be inserted here -->
+        <div id="calendar-wrapper" class="hidden">
+            <div class="calendar-header">
+                <button id="prev-month" class="nav-btn">&lt;</button>
+                <h2 id="month-year-label">Mês Ano</h2>
+                <button id="next-month" class="nav-btn">&gt;</button>
+            </div>
+            
+            <div class="calendar-days-header">
+                <div>Dom</div>
+                <div>Seg</div>
+                <div>Ter</div>
+                <div>Qua</div>
+                <div>Qui</div>
+                <div>Sex</div>
+                <div>Sab</div>
+            </div>
+
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- Days will be inserted here by JS -->
+            </div>
+        </div>
+
+        <div id="selected-date-events" class="selected-events-container hidden">
+            <h3 id="selected-date-title">Eventos do Dia</h3>
+            <div id="day-events-list">
+                <!-- Events for the selected day will appear here -->
+            </div>
+            <button id="close-details" class="close-btn">Fechar Detalhes</button>
         </div>
     </main>
 

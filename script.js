@@ -3,22 +3,55 @@
  */
 
 // Configuration
-// Using the new, user-provided CSV URL
 const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQV98v6jJrnyYRGE2E9yjc0aw1nWDUvjtT6UN6hTkGU3SsZ386uH7owYHxKwVXNhPXGGYpjxY8wCA35/pub?gid=366704952&single=true&output=csv';
-const REFRESH_INTERVAL = 300000; // 5 minutes
 
-// DOM Elements
-const loadingState = document.getElementById('loading');
-const errorState = document.getElementById('error-message');
-const eventsContainer = document.getElementById('events-container');
-const retryBtn = document.getElementById('retry-btn');
+// State
+let allEvents = [];
+let currentMonth = new Date().getMonth(); // 0-11
+let currentYear = new Date().getFullYear();
+
+// DOM Elements vars (init on load)
+let loadingState, errorState, calendarWrapper, calendarGrid, monthYearLabel;
+let prevMonthBtn, nextMonthBtn, retryBtn;
+let selectedEventsContainer, selectedDateTitle, dayEventsList, closeDetailsBtn;
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    // Assign DOM elements
+    loadingState = document.getElementById('loading');
+    errorState = document.getElementById('error-message');
+    calendarWrapper = document.getElementById('calendar-wrapper');
+    calendarGrid = document.getElementById('calendar-grid');
+    monthYearLabel = document.getElementById('month-year-label');
+    prevMonthBtn = document.getElementById('prev-month');
+    nextMonthBtn = document.getElementById('next-month');
+    retryBtn = document.getElementById('retry-btn');
+    selectedEventsContainer = document.getElementById('selected-date-events');
+    selectedDateTitle = document.getElementById('selected-date-title');
+    dayEventsList = document.getElementById('day-events-list');
+    closeDetailsBtn = document.getElementById('close-details');
+
+    init();
+});
 
 function init() {
     loadEvents();
-    retryBtn.addEventListener('click', loadEvents);
+    if (retryBtn) retryBtn.addEventListener('click', loadEvents);
+    if (prevMonthBtn) prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+    if (nextMonthBtn) nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    if (closeDetailsBtn) closeDetailsBtn.addEventListener('click', hideEventDetails);
+}
+
+function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+    } else if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+    }
+    renderCalendar();
 }
 
 function loadEvents() {
@@ -26,14 +59,14 @@ function loadEvents() {
 
     Papa.parse(SPREADSHEET_URL, {
         download: true,
-        header: true, // Expect headers in first row
+        header: true,
         skipEmptyLines: true,
         complete: function (results) {
-            console.log('CSV Parsed:', results);
             if (results.data && results.data.length > 0) {
-                renderEvents(results.data);
+                processEvents(results.data);
+                showContent();
+                renderCalendar();
             } else {
-                console.warn('No data found in CSV.');
                 showError();
             }
         },
@@ -41,149 +74,213 @@ function loadEvents() {
             console.error('PapaParse Error:', err);
             showError();
         }
-    }); // fixed syntax
+    });
 }
 
-function renderEvents(data) {
-    eventsContainer.innerHTML = '';
+function processEvents(data) {
+    allEvents = data
+        .filter(row => row['Nome do Evento'] && row['Nome do Evento'].trim() !== '')
+        .map(event => {
+            const dateStr = event['Data'] || '';
+            const timestamp = parseDateForSort(dateStr || event['Timestamp']);
 
-    // Filter empty rows where "Nome do Evento" is missing
-    const validEvents = data.filter(row => row['Nome do Evento'] && row['Nome do Evento'].trim() !== '');
+            if (!timestamp) return null;
 
-    if (validEvents.length === 0) {
-        showError();
-        return;
+            // Create a Date object from timestamp
+            const dateObj = new Date(timestamp);
+
+            return {
+                raw: event,
+                date: dateObj,
+                day: dateObj.getDate(),
+                month: dateObj.getMonth(),
+                year: dateObj.getFullYear(),
+                timestamp: timestamp
+            };
+        })
+        .filter(item => item !== null);
+}
+
+function renderCalendar() {
+    calendarGrid.innerHTML = '';
+    monthYearLabel.textContent = formatMonthYear(currentMonth, currentYear);
+
+    // First day of the month
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    const lastDay = new Date(currentYear, currentMonth + 1, 0);
+
+    const daysInMonth = lastDay.getDate();
+    const startingDay = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
+
+    // Previous Month Fillers
+    const prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
+    for (let i = startingDay - 1; i >= 0; i--) {
+        const dayNum = prevMonthLastDay - i;
+        const cell = createDayCell(dayNum, 'other-month');
+        calendarGrid.appendChild(cell);
     }
 
-    // Sort events: Descending order (Newest/Future first -> Oldest/Past last)
-    validEvents.sort((a, b) => {
-        const dateA = parseDateForSort(a['Data'] || a['Timestamp']);
-        const dateB = parseDateForSort(b['Data'] || b['Timestamp']);
-        return dateB - dateA;
+    // Current Month Days
+    const today = new Date();
+    for (let i = 1; i <= daysInMonth; i++) {
+        const isToday = (i === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
+        const cell = createDayCell(i, isToday ? 'today' : '');
+
+        // Find events for this day
+        const dayEvents = allEvents.filter(e =>
+            e.day === i && e.month === currentMonth && e.year === currentYear
+        );
+
+        if (dayEvents.length > 0) {
+            const dotsContainer = document.createElement('div');
+            dotsContainer.className = 'event-dots';
+
+            dayEvents.forEach(event => {
+                const dot = document.createElement('span');
+                dot.className = `event-dot ${getEventTypeClass(event.raw['Tipo do Evento'])}`;
+                dot.textContent = event.raw['Nome do Evento'];
+                dotsContainer.appendChild(dot);
+            });
+            cell.appendChild(dotsContainer);
+
+            // Interaction
+            cell.addEventListener('click', () => showEventDetails(i, dayEvents));
+        }
+
+        calendarGrid.appendChild(cell);
+    }
+
+    // Next Month Fillers (to complete grid)
+    const totalCells = startingDay + daysInMonth;
+    const nextMonthDays = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= nextMonthDays; i++) {
+        const cell = createDayCell(i, 'other-month');
+        calendarGrid.appendChild(cell);
+    }
+}
+
+function createDayCell(number, extraClass) {
+    const div = document.createElement('div');
+    div.className = `day-cell ${extraClass}`;
+    div.innerHTML = `<span class="day-number">${number}</span>`;
+    return div;
+}
+
+function getEventTypeClass(type) {
+    if (!type) return 'default';
+    const lower = type.toLowerCase();
+    if (lower.includes('torneio')) return 'tournament';
+    if (lower.includes('encontro') || lower.includes('clube')) return 'meetup';
+    return 'other';
+}
+
+function showEventDetails(day, events) {
+    selectedDateTitle.textContent = `Eventos de ${day}/${currentMonth + 1}/${currentYear}`;
+    dayEventsList.innerHTML = '';
+
+    events.forEach(eventData => {
+        const card = createEventCard(eventData.raw);
+        dayEventsList.appendChild(card);
     });
 
-    validEvents.forEach(event => {
-        // Map fields based on Real CSV Headers
-        // Headers: Timestamp,Email Address,Nome do Evento,Data,Hora de início,Hora de término,Local,Custo,Link do Evento,Realização,Breve Descrição,Tipo do Evento,Rating?
-
-        const name = event['Nome do Evento'] || 'Evento Sem Nome';
-
-        // Format Date/Time
-        let rawDate = event['Data'] || '';
-        const timeStr = event['Hora de início'] || '';
-
-        let dateStr = formatDateToBR(rawDate);
-
-        // Combine Date + Time
-        let finalDate = dateStr;
-        if (dateStr && timeStr) {
-            // Clean up time if needed (e.g. remove seconds if 10:30:00)
-            const shortTime = timeStr.replace(/:00\s/, ' ').replace(/:00$/, '');
-            finalDate = `${dateStr} - ${shortTime}`;
-        } else if (!dateStr && event['Timestamp']) {
-            // Fallback to timestamp if Data is missing
-            // timestamp usually M/D/YYYY H:M:S
-            let parts = event['Timestamp'].split(' ');
-            if (parts[0]) dateStr = formatDateToBR(parts[0]);
-            finalDate = dateStr;
-        }
-
-        const location = event['Local'] || 'Local não informado';
-        // Ensure link is not undefined
-        const link = event['Link do Evento'] || '';
-
-        // Badge Fields
-        const type = event['Tipo do Evento'] || 'Evento';
-        const cost = event['Custo'] || '';
-        const rating = event['Rating?'] || '';
-
-        // Description & Organizer
-        const description = event['Breve Descrição'] || '';
-        const organizer = event['Realização'] || '';
-
-        const card = createEventCard({
-            date: finalDate,
-            name,
-            location,
-            link,
-            type,
-            rating,
-            cost,
-            description,
-            organizer
-        });
-        eventsContainer.appendChild(card);
-    });
-
-    showContent();
+    selectedEventsContainer.classList.remove('hidden');
+    // Scroll to details
+    selectedEventsContainer.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Helper to format date to DD/MM/YYYY
-function formatDateToBR(dateString) {
-    if (!dateString) return '';
-
-    // Handle M/D/YYYY (common in US CSVs from Google Sheets)
-    // Regex matches D/M/YYYY or M/D/YYYY depending on locale, but typically default Sheets export is M/D/YYYY
-    // Let's try to detect separator.
-
-    if (dateString.includes('/')) {
-        const parts = dateString.split('/');
-        // If 3 parts:
-        if (parts.length === 3) {
-            // Heuristic: If first part > 12, it's definitely Day.
-            // But Sheets CSV often exports as M/D/YYYY. 
-            // example: 2/1/2026 (Feb 1st). 
-            // In Brazil 2/1 would be Jan 2nd. 
-            // Assuming the standard export is US format since we saw "1/31/2026" in previous output.
-            let month = parts[0];
-            let day = parts[1];
-            let year = parts[2];
-
-            // Pad with 0
-            month = month.padStart(2, '0');
-            day = day.padStart(2, '0');
-
-            return `${day}/${month}/${year}`;
-        }
-    }
-
-    // Fallback or if already YYYY-MM-DD
-    if (dateString.includes('-')) {
-        const parts = dateString.split('-');
-        if (parts.length === 3) {
-            // YYYY-MM-DD ?
-            if (parts[0].length === 4) {
-                const [year, month, day] = parts;
-                return `${day}/${month}/${year}`;
-            }
-        }
-    }
-
-    return dateString;
+function hideEventDetails() {
+    selectedEventsContainer.classList.add('hidden');
 }
 
-// Helper to parse date for sorting (returns timestamp)
+function formatMonthYear(monthIndex, year) {
+    const months = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    return `${months[monthIndex]} ${year}`;
+}
+
+// Re-using the same card creation logic, slightly adapted if needed
+function createEventCard(event) {
+    const article = document.createElement('article');
+    article.className = 'event-card';
+
+    const name = event['Nome do Evento'] || 'Evento Sem Nome';
+    const location = event['Local'] || 'Local não informado';
+    const link = event['Link do Evento'] || '';
+    const type = event['Tipo do Evento'] || 'Evento';
+    const cost = event['Custo'] || '';
+    const organizer = event['Realização'] || '';
+    const description = event['Breve Descrição'] || '';
+    const timeStr = event['Hora de início'] || '';
+
+    // Badge
+    let typeBadgeClass = getEventTypeClass(type) === 'tournament' ? 'badge-tournament' :
+        (getEventTypeClass(type) === 'meetup' ? 'badge-meetup' : 'badge-default');
+
+    let costBadgeHtml = (cost && cost.toLowerCase().includes('gratuito'))
+        ? `<span class="badge badge-free">Gratuito</span>` : '';
+
+    let organizerHtml = organizer ? `
+        <div class="event-organizer">
+            <span>♟️</span><span>${escapeHtml(organizer)}</span>
+        </div>` : '';
+
+    let linkHtml = link ? `
+        <a href="${escapeHtml(link)}" target="_blank" class="event-link">Mais Informações</a>` : '';
+
+    article.innerHTML = `
+        <div class="event-meta-top">
+            <span class="event-date">${timeStr}</span>
+            <div class="badges-container">
+                <span class="badge ${typeBadgeClass}">${escapeHtml(type)}</span>
+                ${costBadgeHtml}
+            </div>
+        </div>
+        <h2 class="event-title">${escapeHtml(name)}</h2>
+        <div class="event-description">${escapeHtml(description)}</div>
+        ${organizerHtml}
+        <div class="event-location" style="margin-top: 1rem;">
+            <span>📍</span><span>${escapeHtml(location)}</span>
+        </div>
+        ${linkHtml}
+    `;
+    return article;
+}
+
+// -- Helpers (same as before) --
+function showLoading() {
+    loadingState.classList.remove('hidden');
+    errorState.classList.add('hidden');
+    calendarWrapper.classList.add('hidden');
+}
+
+function showContent() {
+    loadingState.classList.add('hidden');
+    errorState.classList.add('hidden');
+    calendarWrapper.classList.remove('hidden');
+}
+
+function showError() {
+    loadingState.classList.add('hidden');
+    errorState.classList.remove('hidden');
+    calendarWrapper.classList.add('hidden');
+}
+
+// Helper to parse date for sorting (timestamp)
 function parseDateForSort(dateString) {
     if (!dateString) return 0;
-
-    // Check for M/D/YYYY (Standard Sheets CSV)
     if (dateString.includes('/')) {
         const parts = dateString.split('/');
         if (parts.length === 3) {
-            // Assume Month/Day/Year (US Format from Sheets)
             const month = parseInt(parts[0], 10);
             const day = parseInt(parts[1], 10);
             const year = parseInt(parts[2], 10);
-
-            // Check if valid numbers
             if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                // Month is 0-indexed in JS Date
                 return new Date(year, month - 1, day).getTime();
             }
         }
     }
-
-    // Check for YYYY-MM-DD
     if (dateString.includes('-')) {
         const parts = dateString.split('-');
         if (parts.length === 3 && parts[0].length === 4) {
@@ -193,105 +290,9 @@ function parseDateForSort(dateString) {
             return new Date(year, month - 1, day).getTime();
         }
     }
-
-    // Fallback to standard parse
     let timestamp = Date.parse(dateString);
     if (!isNaN(timestamp)) return timestamp;
-
     return 0;
-}
-
-function createEventCard(data) {
-    const article = document.createElement('article');
-    article.className = 'event-card';
-
-    // Badge Logic
-    let typeBadgeClass = 'badge-default';
-    if (data.type && data.type.toLowerCase().includes('torneio')) typeBadgeClass = 'badge-tournament';
-    if (data.type && (data.type.toLowerCase().includes('encontro') || data.type.toLowerCase().includes('clube'))) typeBadgeClass = 'badge-meetup';
-
-    let costBadgeHtml = '';
-    if (data.cost && data.cost.toLowerCase() === 'gratuito') {
-        costBadgeHtml = `<span class="badge badge-free">Gratuito</span>`;
-    }
-
-    // Rating Logic (Show only if present)
-    let ratingHtml = '';
-    if (data.rating) {
-        ratingHtml = `<div class="rating-info">⚡ Rating!</div>`;
-    }
-
-    // Organizer Logic
-    let organizerHtml = '';
-    if (data.organizer) {
-        organizerHtml = `
-            <div class="event-organizer">
-                <span>♟️</span>
-                <span>${escapeHtml(data.organizer)}</span>
-            </div>
-        `;
-    }
-
-    // Link Logic
-    let linkHtml = '';
-    if (data.link) {
-        linkHtml = `
-        <a href="${escapeHtml(data.link)}" target="_blank" rel="noopener noreferrer" class="event-link">
-            Mais Informações
-        </a>`;
-    }
-
-    // safe limit description
-    const safeDesc = escapeHtml(data.description);
-
-    // Date display
-    const dateDisplay = data.date ? escapeHtml(data.date) : 'Data a confirmar';
-
-    article.innerHTML = `
-        <div class="event-meta-top">
-            <span class="event-date">${dateDisplay}</span>
-            <div class="badges-container">
-                <span class="badge ${typeBadgeClass}">${escapeHtml(data.type)}</span>
-                ${costBadgeHtml}
-            </div>
-        </div>
-        
-        <h2 class="event-title">${escapeHtml(data.name)}</h2>
-        ${ratingHtml}
-        
-        <div class="event-description">
-            ${safeDesc}
-        </div>
-
-        ${organizerHtml}
-
-        <div class="event-location" style="margin-top: auto;">
-            <span>📍</span>
-            <span>${escapeHtml(data.location)}</span>
-        </div>
-
-        ${linkHtml}
-    `;
-
-    return article;
-}
-
-function showLoading() {
-    loadingState.classList.remove('hidden');
-    errorState.classList.add('hidden');
-    eventsContainer.classList.add('hidden');
-}
-
-function showContent() {
-    loadingState.classList.add('hidden');
-    errorState.classList.add('hidden');
-    eventsContainer.classList.remove('hidden');
-}
-
-function showError() {
-    loadingState.classList.add('hidden');
-    errorState.classList.remove('hidden');
-    eventsContainer.classList.add('hidden');
 }
 
 function escapeHtml(text) {
