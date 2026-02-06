@@ -237,6 +237,12 @@ function createEventDetails(event, dateObj) {
     let costBadgeHtml = (cost && cost.toLowerCase().includes('gratuito'))
         ? `<span class="badge badge-free">Gratuito</span>` : '';
 
+    // Rating Logic (Restored)
+    let ratingHtml = '';
+    if (event['Rating?']) {
+        ratingHtml = `<div class="rating-info">⚡ Rating!</div>`;
+    }
+
     let organizerHtml = organizer ? `
         <div class="event-organizer">
             <span>♟️</span><span>${escapeHtml(organizer)}</span>
@@ -246,14 +252,19 @@ function createEventDetails(event, dateObj) {
         <a href="${escapeHtml(link)}" target="_blank" class="event-link">Mais Informações</a>` : '';
 
     div.innerHTML = `
-        <div class="event-meta-top">
-            <span class="event-date">${fullTime}</span>
+        <h2 class="event-title" style="margin-top: 0; margin-bottom: 0.5rem; padding-right: 2rem;">${escapeHtml(name)}</h2>
+        
+        <div class="event-meta-top" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <div style="font-size: 1.1rem; color: var(--primary-dark); font-weight: 600;">
+                📅 ${fullTime}
+            </div>
             <div class="badges-container">
                 <span class="badge ${typeBadgeClass}">${escapeHtml(type)}</span>
                 ${costBadgeHtml}
+                ${ratingHtml}
             </div>
         </div>
-        <h2 class="event-title">${escapeHtml(name)}</h2>
+
         <div class="event-description">
             <p>${escapeHtml(description)}</p>
         </div>

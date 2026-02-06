@@ -579,7 +579,8 @@ body {
     background: #fff;
     padding: 2rem;
     border-radius: var(--radius);
-    max-width: 500px;
+    max-width: 800px;
+    /* Increased for better layout */
     width: 90%;
     position: relative;
     box-shadow: var(--shadow-md);
