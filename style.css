@@ -667,4 +667,29 @@ body {
     opacity: 1;
     color: var(--primary-dark);
     text-decoration: underline;
+}/* Footer Links */
+.footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    align-items: center;
+    margin-top: 0.75rem;
+}
+
+.footer-link {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.footer-link:hover {
+    opacity: 1;
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.separator {
+    color: var(--border-color);
 }
