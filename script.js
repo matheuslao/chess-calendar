@@ -1,335 +1,473 @@
 /**
  * Cavaleiros do Centro - Calendar Script
+ * Wrapped in IIFE to avoid polluting global scope.
  */
+(function () {
+    'use strict';
 
-// Configuration
-const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQV98v6jJrnyYRGE2E9yjc0aw1nWDUvjtT6UN6hTkGU3SsZ386uH7owYHxKwVXNhPXGGYpjxY8wCA35/pub?gid=366704952&single=true&output=csv';
+    // Configuration
+    const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQV98v6jJrnyYRGE2E9yjc0aw1nWDUvjtT6UN6hTkGU3SsZ386uH7owYHxKwVXNhPXGGYpjxY8wCA35/pub?gid=366704952&single=true&output=csv';
+    const CACHE_KEY = 'chess_calendar_cache';
+    const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+    const REQUEST_TIMEOUT = 15000; // 15 seconds
 
-// State
-let allEvents = [];
-let currentMonth = new Date().getMonth(); // 0-11
-let currentYear = new Date().getFullYear();
+    // State
+    let allEvents = [];
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
 
-// DOM Elements vars (init on load)
-let loadingState, errorState, calendarWrapper, calendarGrid, monthYearLabel;
-let prevMonthBtn, nextMonthBtn, retryBtn;
-let modalOverlay, modalBody, modalCloseBtn;
+    // DOM Elements
+    let loadingState, errorState, calendarWrapper, calendarGrid, monthYearLabel;
+    let prevMonthBtn, nextMonthBtn, todayBtn, retryBtn;
+    let modalOverlay, modalBody, modalCloseBtn;
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', () => {
-    // Assign DOM elements
-    loadingState = document.getElementById('loading');
-    errorState = document.getElementById('error-message');
-    calendarWrapper = document.getElementById('calendar-wrapper');
-    calendarGrid = document.getElementById('calendar-grid');
-    monthYearLabel = document.getElementById('month-year-label');
-    prevMonthBtn = document.getElementById('prev-month');
-    nextMonthBtn = document.getElementById('next-month');
-    retryBtn = document.getElementById('retry-btn');
+    // Initialize App
+    document.addEventListener('DOMContentLoaded', function () {
+        loadingState = document.getElementById('loading');
+        errorState = document.getElementById('error-message');
+        calendarWrapper = document.getElementById('calendar-wrapper');
+        calendarGrid = document.getElementById('calendar-grid');
+        monthYearLabel = document.getElementById('month-year-label');
+        prevMonthBtn = document.getElementById('prev-month');
+        nextMonthBtn = document.getElementById('next-month');
+        todayBtn = document.getElementById('today-btn');
+        retryBtn = document.getElementById('retry-btn');
 
-    // Modal Elements
-    modalOverlay = document.getElementById('event-modal');
-    modalBody = document.getElementById('modal-body');
-    modalCloseBtn = document.getElementById('close-modal');
+        modalOverlay = document.getElementById('event-modal');
+        modalBody = document.getElementById('modal-body');
+        modalCloseBtn = document.getElementById('close-modal');
 
-    init();
-});
+        init();
+    });
 
-function init() {
-    loadEvents();
-    if (retryBtn) retryBtn.addEventListener('click', loadEvents);
-    if (prevMonthBtn) prevMonthBtn.addEventListener('click', () => changeMonth(-1));
-    if (nextMonthBtn) nextMonthBtn.addEventListener('click', () => changeMonth(1));
+    function init() {
+        loadEvents();
 
-    // Modal Listeners
-    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
-    if (modalOverlay) {
-        modalOverlay.addEventListener('click', (e) => {
-            if (e.target === modalOverlay) closeModal();
+        if (retryBtn) retryBtn.addEventListener('click', loadEvents);
+        if (prevMonthBtn) prevMonthBtn.addEventListener('click', function () { changeMonth(-1); });
+        if (nextMonthBtn) nextMonthBtn.addEventListener('click', function () { changeMonth(1); });
+        if (todayBtn) todayBtn.addEventListener('click', goToToday);
+
+        // Modal listeners
+        if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', function (e) {
+                if (e.target === modalOverlay) closeModal();
+            });
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modalOverlay && !modalOverlay.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+
+        // Event delegation on calendar grid
+        if (calendarGrid) {
+            calendarGrid.addEventListener('click', function (e) {
+                var dot = e.target.closest('.event-dot');
+                if (!dot) return;
+
+                var idx = dot.dataset.eventIndex;
+                if (idx !== undefined && allEvents[idx]) {
+                    var ev = allEvents[idx];
+                    openModal(ev.raw, ev.date);
+                }
+            });
+        }
+    }
+
+    function goToToday() {
+        var now = new Date();
+        currentMonth = now.getMonth();
+        currentYear = now.getFullYear();
+        renderCalendar();
+    }
+
+    function changeMonth(delta) {
+        currentMonth += delta;
+        if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+        } else if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+        }
+        renderCalendar();
+    }
+
+    // --- Data Loading with Cache & Timeout ---
+    function loadEvents() {
+        showLoading();
+
+        // Try cache first
+        var cached = getCache();
+        if (cached) {
+            processEvents(cached);
+            showContent();
+            renderCalendar();
+            // Still refresh in background
+            fetchCSV(true);
+            return;
+        }
+
+        fetchCSV(false);
+    }
+
+    function fetchCSV(isBackground) {
+        var timedOut = false;
+        var timeoutId = setTimeout(function () {
+            timedOut = true;
+            if (!isBackground) showError();
+        }, REQUEST_TIMEOUT);
+
+        Papa.parse(SPREADSHEET_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function (results) {
+                clearTimeout(timeoutId);
+                if (timedOut && !isBackground) return;
+
+                if (results.data && results.data.length > 0) {
+                    setCache(results.data);
+                    processEvents(results.data);
+                    if (!isBackground) {
+                        showContent();
+                    }
+                    renderCalendar();
+                } else if (!isBackground) {
+                    showError();
+                }
+            },
+            error: function (err) {
+                clearTimeout(timeoutId);
+                console.error('PapaParse Error:', err);
+                if (!isBackground) showError();
+            }
         });
     }
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modalOverlay.classList.contains('hidden')) {
-            closeModal();
+
+    // --- LocalStorage Cache ---
+    function getCache() {
+        try {
+            var raw = localStorage.getItem(CACHE_KEY);
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (Date.now() - parsed.timestamp > CACHE_TTL) return null;
+            return parsed.data;
+        } catch (e) {
+            return null;
         }
-    });
-}
-
-function changeMonth(delta) {
-    currentMonth += delta;
-    if (currentMonth < 0) {
-        currentMonth = 11;
-        currentYear--;
-    } else if (currentMonth > 11) {
-        currentMonth = 0;
-        currentYear++;
     }
-    renderCalendar();
-}
 
-function loadEvents() {
-    showLoading();
+    function setCache(data) {
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                timestamp: Date.now(),
+                data: data
+            }));
+        } catch (e) {
+            // Storage full or unavailable — ignore
+        }
+    }
 
-    Papa.parse(SPREADSHEET_URL, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function (results) {
-            if (results.data && results.data.length > 0) {
-                processEvents(results.data);
-                showContent();
-                renderCalendar();
+    // --- Data Processing ---
+    function processEvents(data) {
+        allEvents = data
+            .filter(function (row) { return row['Nome do Evento'] && row['Nome do Evento'].trim() !== ''; })
+            .map(function (event) {
+                var dateStr = event['Data'] || '';
+                var timestamp = parseDateForSort(dateStr || event['Timestamp']);
+
+                if (!timestamp) return null;
+
+                var dateObj = new Date(timestamp);
+
+                return {
+                    raw: event,
+                    date: dateObj,
+                    day: dateObj.getDate(),
+                    month: dateObj.getMonth(),
+                    year: dateObj.getFullYear(),
+                    timestamp: timestamp
+                };
+            })
+            .filter(function (item) { return item !== null; });
+    }
+
+    // --- Calendar Rendering ---
+    function renderCalendar() {
+        calendarGrid.innerHTML = '';
+        monthYearLabel.textContent = formatMonthYear(currentMonth, currentYear);
+
+        // Update "Today" button visibility
+        var now = new Date();
+        if (todayBtn) {
+            var isCurrentMonth = currentMonth === now.getMonth() && currentYear === now.getFullYear();
+            todayBtn.classList.toggle('hidden', isCurrentMonth);
+        }
+
+        var firstDay = new Date(currentYear, currentMonth, 1);
+        var lastDay = new Date(currentYear, currentMonth + 1, 0);
+        var daysInMonth = lastDay.getDate();
+        var startingDay = firstDay.getDay();
+
+        // Previous month fillers (with events)
+        var prevMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        var prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        var prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
+        for (var i = startingDay - 1; i >= 0; i--) {
+            var dayNum = prevMonthLastDay - i;
+            var cell = createDayCell(dayNum, 'other-month');
+            appendEventsToCell(cell, dayNum, prevMonth, prevMonthYear);
+            calendarGrid.appendChild(cell);
+        }
+
+        // Current month days
+        for (var d = 1; d <= daysInMonth; d++) {
+            var isToday = (d === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear());
+            var cell = createDayCell(d, isToday ? 'today' : '');
+            appendEventsToCell(cell, d, currentMonth, currentYear);
+            calendarGrid.appendChild(cell);
+        }
+
+        // Next month fillers (with events)
+        var totalCells = startingDay + daysInMonth;
+        var nextMonthDays = (7 - (totalCells % 7)) % 7;
+        var nextMonthVal = currentMonth === 11 ? 0 : currentMonth + 1;
+        var nextMonthYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+        for (var n = 1; n <= nextMonthDays; n++) {
+            var cell = createDayCell(n, 'other-month');
+            appendEventsToCell(cell, n, nextMonthVal, nextMonthYear);
+            calendarGrid.appendChild(cell);
+        }
+
+        // Apply transition animation
+        calendarGrid.classList.remove('calendar-fade');
+        // Force reflow
+        void calendarGrid.offsetWidth;
+        calendarGrid.classList.add('calendar-fade');
+    }
+
+    function appendEventsToCell(cell, day, month, year) {
+        var dayEvents = allEvents.filter(function (e) {
+            return e.day === day && e.month === month && e.year === year;
+        });
+
+        if (dayEvents.length === 0) return;
+
+        var dotsContainer = document.createElement('div');
+        dotsContainer.className = 'event-dots';
+
+        dayEvents.forEach(function (event) {
+            var idx = allEvents.indexOf(event);
+            var dot = document.createElement('span');
+            dot.className = 'event-dot ' + getEventTypeClass(event.raw['Tipo do Evento']);
+            dot.textContent = event.raw['Nome do Evento'];
+            dot.dataset.eventIndex = idx;
+            dot.setAttribute('role', 'button');
+            dot.setAttribute('tabindex', '0');
+            dot.setAttribute('aria-label', 'Ver detalhes: ' + event.raw['Nome do Evento']);
+            dotsContainer.appendChild(dot);
+        });
+
+        cell.appendChild(dotsContainer);
+    }
+
+    function createDayCell(number, extraClass) {
+        var div = document.createElement('div');
+        div.className = 'day-cell ' + extraClass;
+        div.innerHTML = '<span class="day-number">' + number + '</span>';
+        return div;
+    }
+
+    function getEventTypeClass(type) {
+        if (!type) return 'default';
+        var lower = type.toLowerCase();
+        if (lower.includes('torneio')) return 'tournament';
+        if (lower.includes('encontro') || lower.includes('clube')) return 'meetup';
+        return 'other';
+    }
+
+    // --- Modal ---
+    function openModal(eventData, dateObj) {
+        modalBody.innerHTML = '';
+        var card = createEventDetails(eventData, dateObj);
+        modalBody.appendChild(card);
+        modalOverlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        // Focus trap
+        var focusableEls = modalOverlay.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])');
+        if (focusableEls.length > 0) {
+            focusableEls[0].focus();
+        }
+        modalOverlay._focusTrap = function (e) {
+            if (e.key !== 'Tab') return;
+            var first = focusableEls[0];
+            var last = focusableEls[focusableEls.length - 1];
+            if (e.shiftKey) {
+                if (document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                }
             } else {
-                showError();
+                if (document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                }
             }
-        },
-        error: function (err) {
-            console.error('PapaParse Error:', err);
-            showError();
-        }
-    });
-}
-
-function processEvents(data) {
-    allEvents = data
-        .filter(row => row['Nome do Evento'] && row['Nome do Evento'].trim() !== '')
-        .map(event => {
-            const dateStr = event['Data'] || '';
-            const timestamp = parseDateForSort(dateStr || event['Timestamp']);
-
-            if (!timestamp) return null;
-
-            // Create a Date object from timestamp
-            const dateObj = new Date(timestamp);
-
-            return {
-                raw: event,
-                date: dateObj,
-                day: dateObj.getDate(),
-                month: dateObj.getMonth(),
-                year: dateObj.getFullYear(),
-                timestamp: timestamp
-            };
-        })
-        .filter(item => item !== null);
-}
-
-function renderCalendar() {
-    calendarGrid.innerHTML = '';
-    monthYearLabel.textContent = formatMonthYear(currentMonth, currentYear);
-
-    // First day of the month
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const lastDay = new Date(currentYear, currentMonth + 1, 0);
-
-    const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay(); // 0 (Sun) to 6 (Sat)
-
-    // Previous Month Fillers
-    const prevMonthLastDay = new Date(currentYear, currentMonth, 0).getDate();
-    for (let i = startingDay - 1; i >= 0; i--) {
-        const dayNum = prevMonthLastDay - i;
-        const cell = createDayCell(dayNum, 'other-month');
-        calendarGrid.appendChild(cell);
+        };
+        document.addEventListener('keydown', modalOverlay._focusTrap);
     }
 
-    // Current Month Days
-    const today = new Date();
-    for (let i = 1; i <= daysInMonth; i++) {
-        const isToday = (i === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear());
-        const cell = createDayCell(i, isToday ? 'today' : '');
+    function closeModal() {
+        modalOverlay.classList.add('hidden');
+        document.body.style.overflow = '';
+        if (modalOverlay._focusTrap) {
+            document.removeEventListener('keydown', modalOverlay._focusTrap);
+        }
+    }
 
-        // Find events for this day
-        const dayEvents = allEvents.filter(e =>
-            e.day === i && e.month === currentMonth && e.year === currentYear
-        );
+    function formatMonthYear(monthIndex, year) {
+        var months = [
+            'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+            'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+        return months[monthIndex] + ' ' + year;
+    }
 
-        if (dayEvents.length > 0) {
-            const dotsContainer = document.createElement('div');
-            dotsContainer.className = 'event-dots';
+    // --- Event Detail Card (no inline styles) ---
+    function createEventDetails(event, dateObj) {
+        var div = document.createElement('div');
 
-            dayEvents.forEach(event => {
-                const dot = document.createElement('span');
-                dot.className = `event-dot ${getEventTypeClass(event.raw['Tipo do Evento'])}`;
-                dot.textContent = event.raw['Nome do Evento'];
+        var name = event['Nome do Evento'] || 'Evento Sem Nome';
+        var location = event['Local'] || 'Local não informado';
+        var link = event['Link do Evento'] || '';
+        var type = event['Tipo do Evento'] || 'Evento';
+        var cost = event['Custo'] || '';
+        var organizer = event['Realização'] || '';
+        var description = event['Breve Descrição'] || '';
+        var timeStr = event['Hora de início'] || '';
 
-                // Add click listener to the specific event dot
-                dot.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent bubbling if we added click to cell later
-                    openModal(event.raw, event.date);
-                });
+        var dateFormatted = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        var isoDate = dateObj.toISOString().split('T')[0];
+        var fullTime = timeStr ? dateFormatted + ' às ' + timeStr : dateFormatted;
 
-                dotsContainer.appendChild(dot);
-            });
-            cell.appendChild(dotsContainer);
+        var typeBadgeClass = getEventTypeClass(type) === 'tournament' ? 'badge-tournament' :
+            (getEventTypeClass(type) === 'meetup' ? 'badge-meetup' : 'badge-default');
+
+        var costBadgeHtml = (cost && cost.toLowerCase().includes('gratuito'))
+            ? '<span class="badge badge-free">Gratuito</span>' : '';
+
+        var ratingHtml = '';
+        if (event['Rating?']) {
+            ratingHtml = '<div class="rating-info">⚡ Rating!</div>';
         }
 
-        calendarGrid.appendChild(cell);
+        var organizerHtml = organizer ? '\
+            <div class="event-organizer">\
+                <span>♟️</span><span>' + escapeHtml(organizer) + '</span>\
+            </div>' : '';
+
+        var linkHtml = link ? '\
+            <a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" class="event-link">Mais Informações</a>' : '';
+
+        div.innerHTML = '\
+            <h2 class="event-title modal-title">' + escapeHtml(name) + '</h2>\
+            <div class="event-meta-top modal-meta">\
+                <div class="modal-datetime">\
+                    📅 <time datetime="' + isoDate + '">' + fullTime + '</time>\
+                </div>\
+                <div class="badges-container">\
+                    <span class="badge ' + typeBadgeClass + '">' + escapeHtml(type) + '</span>\
+                    ' + costBadgeHtml + '\
+                    ' + ratingHtml + '\
+                </div>\
+            </div>\
+            <div class="event-description">\
+                <p>' + escapeHtml(description) + '</p>\
+            </div>\
+            ' + organizerHtml + '\
+            <div class="event-location modal-location">\
+                <span>📍</span><span>' + escapeHtml(location) + '</span>\
+            </div>\
+            ' + linkHtml;
+        return div;
     }
 
-    // Next Month Fillers (to complete grid)
-    const totalCells = startingDay + daysInMonth;
-    const nextMonthDays = (7 - (totalCells % 7)) % 7;
-    for (let i = 1; i <= nextMonthDays; i++) {
-        const cell = createDayCell(i, 'other-month');
-        calendarGrid.appendChild(cell);
-    }
-}
-
-function createDayCell(number, extraClass) {
-    const div = document.createElement('div');
-    div.className = `day-cell ${extraClass}`;
-    div.innerHTML = `<span class="day-number">${number}</span>`;
-    return div;
-}
-
-function getEventTypeClass(type) {
-    if (!type) return 'default';
-    const lower = type.toLowerCase();
-    if (lower.includes('torneio')) return 'tournament';
-    if (lower.includes('encontro') || lower.includes('clube')) return 'meetup';
-    return 'other';
-}
-
-function openModal(eventData, dateObj) {
-    modalBody.innerHTML = '';
-    const card = createEventDetails(eventData, dateObj);
-    modalBody.appendChild(card);
-    modalOverlay.classList.remove('hidden');
-    // Prevent background scrolling
-    document.body.style.overflow = 'hidden';
-}
-
-function closeModal() {
-    modalOverlay.classList.add('hidden');
-    document.body.style.overflow = '';
-}
-
-function formatMonthYear(monthIndex, year) {
-    const months = [
-        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
-    return `${months[monthIndex]} ${year}`;
-}
-
-// Prepare content for modal
-function createEventDetails(event, dateObj) {
-    const div = document.createElement('div');
-
-    const name = event['Nome do Evento'] || 'Evento Sem Nome';
-    const location = event['Local'] || 'Local não informado';
-    const link = event['Link do Evento'] || '';
-    const type = event['Tipo do Evento'] || 'Evento';
-    const cost = event['Custo'] || '';
-    const organizer = event['Realização'] || '';
-    const description = event['Breve Descrição'] || '';
-    const timeStr = event['Hora de início'] || '';
-
-    // Format Date nicely
-    const dateFormatted = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-    const fullTime = timeStr ? `${dateFormatted} às ${timeStr}` : dateFormatted;
-
-    // Badge
-    let typeBadgeClass = getEventTypeClass(type) === 'tournament' ? 'badge-tournament' :
-        (getEventTypeClass(type) === 'meetup' ? 'badge-meetup' : 'badge-default');
-
-    let costBadgeHtml = (cost && cost.toLowerCase().includes('gratuito'))
-        ? `<span class="badge badge-free">Gratuito</span>` : '';
-
-    // Rating Logic (Restored)
-    let ratingHtml = '';
-    if (event['Rating?']) {
-        ratingHtml = `<div class="rating-info">⚡ Rating!</div>`;
+    // --- UI State Helpers ---
+    function showLoading() {
+        loadingState.classList.remove('hidden');
+        errorState.classList.add('hidden');
+        calendarWrapper.classList.add('hidden');
     }
 
-    let organizerHtml = organizer ? `
-        <div class="event-organizer">
-            <span>♟️</span><span>${escapeHtml(organizer)}</span>
-        </div>` : '';
+    function showContent() {
+        loadingState.classList.add('hidden');
+        errorState.classList.add('hidden');
+        calendarWrapper.classList.remove('hidden');
+    }
 
-    let linkHtml = link ? `
-        <a href="${escapeHtml(link)}" target="_blank" class="event-link">Mais Informações</a>` : '';
+    function showError() {
+        loadingState.classList.add('hidden');
+        errorState.classList.remove('hidden');
+        calendarWrapper.classList.add('hidden');
+    }
 
-    div.innerHTML = `
-        <h2 class="event-title" style="margin-top: 0; margin-bottom: 0.5rem; padding-right: 2rem;">${escapeHtml(name)}</h2>
-        
-        <div class="event-meta-top" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
-            <div style="font-size: 1.1rem; color: var(--primary-dark); font-weight: 600;">
-                📅 ${fullTime}
-            </div>
-            <div class="badges-container">
-                <span class="badge ${typeBadgeClass}">${escapeHtml(type)}</span>
-                ${costBadgeHtml}
-                ${ratingHtml}
-            </div>
-        </div>
+    // --- Date Parsing ---
+    function parseDateForSort(dateString) {
+        if (!dateString) return null;
 
-        <div class="event-description">
-            <p>${escapeHtml(description)}</p>
-        </div>
-        ${organizerHtml}
-        <div class="event-location" style="margin-top: 1rem;">
-            <span>📍</span><span>${escapeHtml(location)}</span>
-        </div>
-        ${linkHtml}
-    `;
-    return div;
-}
-
-// -- Helpers (same as before) --
-function showLoading() {
-    loadingState.classList.remove('hidden');
-    errorState.classList.add('hidden');
-    calendarWrapper.classList.add('hidden');
-}
-
-function showContent() {
-    loadingState.classList.add('hidden');
-    errorState.classList.add('hidden');
-    calendarWrapper.classList.remove('hidden');
-}
-
-function showError() {
-    loadingState.classList.add('hidden');
-    errorState.classList.remove('hidden');
-    calendarWrapper.classList.add('hidden');
-}
-
-// Helper to parse date for sorting (timestamp)
-function parseDateForSort(dateString) {
-    if (!dateString) return 0;
-    if (dateString.includes('/')) {
-        const parts = dateString.split('/');
-        if (parts.length === 3) {
-            const month = parseInt(parts[0], 10);
-            const day = parseInt(parts[1], 10);
-            const year = parseInt(parts[2], 10);
-            if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-                return new Date(year, month - 1, day).getTime();
+        if (dateString.includes('/')) {
+            var parts = dateString.split('/');
+            if (parts.length === 3) {
+                var p0 = parseInt(parts[0], 10);
+                var p1 = parseInt(parts[1], 10);
+                var p2 = parseInt(parts[2], 10);
+                if (!isNaN(p0) && !isNaN(p1) && !isNaN(p2)) {
+                    // Detect format: if first part > 12, it's DD/MM/YYYY (Brazilian)
+                    // Otherwise default to MM/DD/YYYY (American, Google Sheets default)
+                    if (p0 > 12) {
+                        // DD/MM/YYYY
+                        return new Date(p2, p1 - 1, p0).getTime();
+                    } else if (p1 > 12) {
+                        // MM/DD/YYYY (American) where day > 12
+                        return new Date(p2, p0 - 1, p1).getTime();
+                    } else {
+                        // Ambiguous — default to MM/DD/YYYY (Google Sheets export default)
+                        return new Date(p2, p0 - 1, p1).getTime();
+                    }
+                }
             }
         }
-    }
-    if (dateString.includes('-')) {
-        const parts = dateString.split('-');
-        if (parts.length === 3 && parts[0].length === 4) {
-            const year = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10);
-            const day = parseInt(parts[2], 10);
-            return new Date(year, month - 1, day).getTime();
-        }
-    }
-    let timestamp = Date.parse(dateString);
-    if (!isNaN(timestamp)) return timestamp;
-    return 0;
-}
 
-function escapeHtml(text) {
-    if (!text) return '';
-    return text.toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+        if (dateString.includes('-')) {
+            var parts = dateString.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10);
+                var day = parseInt(parts[2], 10);
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                    return new Date(year, month - 1, day).getTime();
+                }
+            }
+        }
+
+        var timestamp = Date.parse(dateString);
+        if (!isNaN(timestamp)) return timestamp;
+
+        return null;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+})();
