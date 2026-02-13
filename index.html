@@ -5,12 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cavaleiros do Centro - Comunidade de Xadrez</title>
+    <meta name="description" content="Calendário de eventos de xadrez da comunidade Cavaleiros do Centro em Salvador, Bahia. Torneios, encontros e muito mais.">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Cavaleiros do Centro - Comunidade de Xadrez">
+    <meta property="og:description" content="Calendário de eventos de xadrez da comunidade Cavaleiros do Centro em Salvador, Bahia.">
+    <meta property="og:type" content="website">
+
+    <!-- Favicon (chess pawn emoji as SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟️</text></svg>">
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
     <!-- PapaParse for CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -36,9 +48,12 @@
 
         <div id="calendar-wrapper" class="hidden">
             <div class="calendar-header">
-                <button id="prev-month" class="nav-btn">&lt;</button>
-                <h2 id="month-year-label">Mês Ano</h2>
-                <button id="next-month" class="nav-btn">&gt;</button>
+                <button id="prev-month" class="nav-btn" aria-label="Mês anterior">&lt;</button>
+                <div class="calendar-header-center">
+                    <h2 id="month-year-label">Mês Ano</h2>
+                    <button id="today-btn" class="today-btn hidden">Hoje</button>
+                </div>
+                <button id="next-month" class="nav-btn" aria-label="Próximo mês">&gt;</button>
             </div>
 
             <div class="calendar-legend">
@@ -69,9 +84,9 @@
         </div>
 
         <!-- Event Modal -->
-        <div id="event-modal" class="modal-overlay hidden">
+        <div id="event-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Detalhes do evento">
             <div class="modal-content">
-                <button id="close-modal" class="modal-close-btn">&times;</button>
+                <button id="close-modal" class="modal-close-btn" aria-label="Fechar">&times;</button>
                 <div id="modal-body">
                     <!-- Event Details will be injected here -->
                 </div>
@@ -82,9 +97,9 @@
     <footer class="app-footer">
         <p>Feito pela comunidade para a comunidade.</p>
         <div class="footer-links">
-            <a href="https://linktr.ee/cavaleirosdocentro" target="_blank" class="footer-link">🌳 Linktree</a>
+            <a href="https://linktr.ee/cavaleirosdocentro" target="_blank" rel="noopener noreferrer" class="footer-link">🌳 Linktree</a>
             <span class="separator">•</span>
-            <a href="https://forms.gle/5JcVGHQXQXhK9XXy7" target="_blank" class="footer-link">Divulgar evento</a>
+            <a href="https://forms.gle/5JcVGHQXQXhK9XXy7" target="_blank" rel="noopener noreferrer" class="footer-link">Divulgar evento</a>
         </div>
     </footer>
 
