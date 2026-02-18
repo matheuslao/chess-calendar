@@ -341,6 +341,37 @@ body {
     background-color: var(--accent-gold);
 }
 
+/* Small share icon/link next to an event dot */
+.share-icon {
+    margin-left: 6px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: inline-block;
+    vertical-align: middle;
+    opacity: 0.9;
+}
+.share-icon:hover {
+    opacity: 1;
+}
+
+/* Modal share button */
+.share-btn {
+    background: var(--primary-dark);
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.share-btn:hover {
+    opacity: 0.95;
+}
+
 /* ===== Modal ===== */
 .modal-overlay {
     position: fixed;
