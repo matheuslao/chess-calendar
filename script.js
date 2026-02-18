@@ -15,6 +15,7 @@
     let allEvents = [];
     let currentMonth = new Date().getMonth();
     let currentYear = new Date().getFullYear();
+    let deepLinkHandled = false;
 
     // DOM Elements
     let loadingState, errorState, calendarWrapper, calendarGrid, monthYearLabel;
@@ -70,10 +71,15 @@
                 var idx = dot.dataset.eventIndex;
                 if (idx !== undefined && allEvents[idx]) {
                     var ev = allEvents[idx];
-                    openModal(ev.raw, ev.date);
+                    openModal(ev, ev.date);
                 }
             });
         }
+
+        // Handle URL hash changes (e.g., clicking a shared link)
+        window.addEventListener('hashchange', function () {
+            checkDeepLink(true);
+        });
     }
 
     function goToToday() {
@@ -189,7 +195,8 @@
                     day: dateObj.getDate(),
                     month: dateObj.getMonth(),
                     year: dateObj.getFullYear(),
-                    timestamp: timestamp
+                    timestamp: timestamp,
+                    id: 'ev' + timestamp
                 };
             })
             .filter(function (item) { return item !== null; });
@@ -247,7 +254,39 @@
         // Force reflow
         void calendarGrid.offsetWidth;
         calendarGrid.classList.add('calendar-fade');
+            // After rendering, check if URL contains a deep link to open
+            checkDeepLink();
     }
+
+        // Try to open event from URL hash or ?event=ID
+        function checkDeepLink(force) {
+            if (deepLinkHandled && !force) return;
+            var hash = window.location.hash || '';
+            var params = new URLSearchParams(window.location.search);
+            var id = '';
+            if (hash && hash.startsWith('#')) id = hash.substring(1);
+            if (!id && params.has('event')) id = params.get('event');
+            if (!id) return;
+            deepLinkHandled = true;
+            openEventById(id);
+        }
+
+        function openEventById(id) {
+            if (!id) return;
+            var foundIdx = allEvents.findIndex(function (e) { return e.id === id; });
+            if (foundIdx === -1) return;
+            var ev = allEvents[foundIdx];
+            // Move calendar to event month/year then render
+            currentMonth = ev.month;
+            currentYear = ev.year;
+            renderCalendar();
+            // After render, find the element and scroll/open
+            setTimeout(function () {
+                var el = document.querySelector('[data-event-id="' + id + '"]');
+                if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                openModal(ev, ev.date);
+            }, 60);
+        }
 
     function appendEventsToCell(cell, day, month, year) {
         var dayEvents = allEvents.filter(function (e) {
@@ -265,10 +304,14 @@
             dot.className = 'event-dot ' + getEventTypeClass(event.raw['Tipo do Evento']);
             dot.textContent = event.raw['Nome do Evento'];
             dot.dataset.eventIndex = idx;
+            if (event.id) dot.dataset.eventId = event.id;
             dot.setAttribute('role', 'button');
             dot.setAttribute('tabindex', '0');
             dot.setAttribute('aria-label', 'Ver detalhes: ' + event.raw['Nome do Evento']);
             dotsContainer.appendChild(dot);
+
+            // Small share link next to the dot
+            // (share icon removed from calendar view per user request)
         });
 
         cell.appendChild(dotsContainer);
@@ -290,10 +333,32 @@
     }
 
     // --- Modal ---
-    function openModal(eventData, dateObj) {
+    function openModal(eventObj, dateObj) {
         modalBody.innerHTML = '';
-        var card = createEventDetails(eventData, dateObj);
+        var card = createEventDetails(eventObj, dateObj);
         modalBody.appendChild(card);
+        // After inserting details, wire up share/copy button if present
+        var copyBtn = modalBody.querySelector('.copy-share-btn');
+        if (copyBtn) {
+            var originalCopyLabel = copyBtn.textContent;
+            copyBtn.addEventListener('click', function () {
+                var shareUrl = window.location.origin + window.location.pathname + '#' + (eventObj.id || '');
+                try {
+                    navigator.clipboard.writeText(shareUrl);
+                    copyBtn.textContent = 'Copiado!';
+                    setTimeout(function () { copyBtn.textContent = originalCopyLabel; }, 1500);
+                } catch (e) {
+                    // fallback: select and prompt (rare since we no longer render an input)
+                    var input = modalBody.querySelector('.share-url-input');
+                    if (input) {
+                        input.select();
+                        document.execCommand('copy');
+                        copyBtn.textContent = 'Copiado!';
+                        setTimeout(function () { copyBtn.textContent = originalCopyLabel; }, 1500);
+                    }
+                }
+            });
+        }
         modalOverlay.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
 
@@ -338,9 +403,10 @@
     }
 
     // --- Event Detail Card (no inline styles) ---
-    function createEventDetails(event, dateObj) {
+    function createEventDetails(eventObj, dateObj) {
         var div = document.createElement('div');
 
+        var event = eventObj.raw || {};
         var name = event['Nome do Evento'] || 'Evento Sem Nome';
         var location = event['Local'] || 'Local não informado';
         var link = event['Link do Evento'] || '';
@@ -365,34 +431,45 @@
             ratingHtml = '<div class="rating-info">⚡ Rating!</div>';
         }
 
-        var organizerHtml = organizer ? '\
-            <div class="event-organizer">\
-                <span>♟️</span><span>' + escapeHtml(organizer) + '</span>\
-            </div>' : '';
+        var organizerHtml = organizer ? '<div class="event-organizer"><span>♟️</span><span>' + escapeHtml(organizer) + '</span></div>' : '';
+        var linkHtml = link ? '<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" class="event-link">Mais Informações</a>' : '';
 
-        var linkHtml = link ? '\
-            <a href="' + escapeHtml(link) + '" target="_blank" rel="noopener noreferrer" class="event-link">Mais Informações</a>' : '';
+        var shareUrl = (eventObj.id) ? window.location.origin + window.location.pathname + '#' + eventObj.id : '';
+        var shareHtml = '';
+        if (shareUrl) {
+            // Simple share button with icon — no visible URL or external anchor
+            shareHtml = '<div class="event-share-row" style="margin-top:1rem;display:flex;justify-content:flex-end">'
+                + '<button class="copy-share-btn share-btn" aria-label="Copiar link" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.4rem 0.6rem;border-radius:6px;border:none;background:var(--primary-dark);color:#fff;font-weight:600;">'
+                + '🔗 <span style="font-size:0.7rem">Copiar Link</span>'
+                + '</button>'
+                + '</div>';
+        }
 
-        div.innerHTML = '\
-            <h2 class="event-title modal-title">' + escapeHtml(name) + '</h2>\
-            <div class="event-meta-top modal-meta">\
-                <div class="modal-datetime">\
-                    📅 <time datetime="' + isoDate + '">' + fullTime + '</time>\
-                </div>\
-                <div class="badges-container">\
-                    <span class="badge ' + typeBadgeClass + '">' + escapeHtml(type) + '</span>\
-                    ' + costBadgeHtml + '\
-                    ' + ratingHtml + '\
-                </div>\
-            </div>\
-            <div class="event-description">\
-                <p>' + escapeHtml(description) + '</p>\
-            </div>\
-            ' + organizerHtml + '\
-            <div class="event-location modal-location">\
-                <span>📍</span><span>' + escapeHtml(location) + '</span>\
-            </div>\
-            ' + linkHtml;
+        var html =
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem">'
+                + '<h2 class="event-title modal-title" style="margin:0">' + escapeHtml(name) + '</h2>'
+                + (shareHtml ? '' : '')
+            + '</div>'
+            + '<div class="event-meta-top modal-meta">'
+                + '<div class="modal-datetime">'
+                    + '📅 <time datetime="' + isoDate + '">' + fullTime + '</time>'
+                + '</div>'
+                + '<div class="badges-container">'
+                    + '<span class="badge ' + typeBadgeClass + '">' + escapeHtml(type) + '</span>'
+                    + costBadgeHtml
+                    + ratingHtml
+                + '</div>'
+            + '</div>'
+            + '<div class="event-description">'
+                + '<p>' + escapeHtml(description) + '</p>'
+            + '</div>'
+            + organizerHtml
+            + '<div class="event-location modal-location">'
+                + '<span>📍</span><span>' + escapeHtml(location) + '</span>'
+            + '</div>'
+            + linkHtml + shareHtml;
+
+        div.innerHTML = html;
         return div;
     }
 
